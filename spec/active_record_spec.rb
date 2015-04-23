@@ -15,6 +15,11 @@ def setup_db
       t.integer :post_id, :null => false
       t.datetime :deleted_at
     end
+
+    create_table :votes do |t|
+      t.integer :votable_id, :null => false
+      t.string :votable_type, :null => false
+    end
   end
 end
 
@@ -23,8 +28,10 @@ setup_db
 class Post < ActiveRecord::Base
   has_many :comments
   has_many :active_comments, -> { where( "deleted_at IS NULL") }, :class_name => 'Comment'
+  has_many :votes, as: :votable
   preload_counts :comments => [:with_even_id]
   preload_counts :active_comments
+  preload_counts :votes
 end
 
 class PostWithActiveComments < ActiveRecord::Base
@@ -40,10 +47,15 @@ class Comment < ActiveRecord::Base
   scope :with_even_id, -> { where('id % 2 = 0') }
 end
 
+class Vote < ActiveRecord::Base
+  belongs_to :votable
+end
+
 def create_data
   post = Post.create
   5.times { post.comments.create }
   5.times { post.comments.create :deleted_at => Time.now }
+  5.times { post.votes.create }
 end
 
 create_data
@@ -70,7 +82,7 @@ describe Post do
   end
 
   describe 'instance with preloaded count' do
-    let(:post) { Post.preload_comment_counts.first }
+    let(:post) { Post.preload_comment_counts.preload_vote_counts.first }
 
     it "should be able to get the association count" do
       post.comments_count.should equal(10)
@@ -78,6 +90,13 @@ describe Post do
 
     it "should be able to get the association count with a scope" do
       post.with_even_id_comments_count.should equal(5)
+    end
+
+    context "when association is polymorphic" do
+      let(:post) { Post.preload_vote_counts.first }
+      it "should be able to get the association count" do
+        post.votes_count.should equal(5)
+      end
     end
   end
 end
