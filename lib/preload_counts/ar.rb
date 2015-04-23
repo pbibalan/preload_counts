@@ -53,7 +53,10 @@ module PreloadCounts
 
     def scope_to_select(association, scope)
       association_reflections = self.reflections.with_indifferent_access[association]
-      resolved_association = association.to_s.singularize.camelize.constantize
+      
+      r_class_name = association_reflections.class_name
+
+      resolved_association = r_class_name.present? ? r_class_name.singularize.constantize : association.to_s.singularize.camelize.constantize
       conditions = []
 
       if scope
@@ -69,11 +72,12 @@ module PreloadCounts
 
       r_options = association_reflections.options
       foreign_key = r_options[:as].present? ? "#{r_options[:as]}_id" : "#{table_name.singularize}_id"
+      association_table_name = resolved_association.table_name
 
       sql = <<-SQL
       (SELECT count(*)
-       FROM #{association}
-       WHERE #{association}.#{foreign_key} = #{table_name}.id AND
+       FROM #{association_table_name}
+       WHERE #{association_table_name}.#{foreign_key} = #{table_name}.id AND
        #{conditions_to_sql conditions}) AS #{find_accessor_name(association, scope)}
       SQL
     end

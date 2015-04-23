@@ -34,13 +34,6 @@ class Post < ActiveRecord::Base
   preload_counts :votes
 end
 
-class PostWithActiveComments < ActiveRecord::Base
-  self.table_name = :posts
-
-  has_many :comments, -> { where "deleted_at IS NULL" }
-  preload_counts :comments
-end
-
 class Comment < ActiveRecord::Base
   belongs_to :post
 
@@ -77,12 +70,12 @@ describe Post do
     end
 
     it "should have an active_comments_count accessor" do
-      post.should respond_to(:comments_count)
+      post.should respond_to(:active_comments_count)
     end
   end
 
   describe 'instance with preloaded count' do
-    let(:post) { Post.preload_comment_counts.preload_vote_counts.first }
+    let(:post) { Post.preload_comment_counts.first }
 
     it "should be able to get the association count" do
       post.comments_count.should equal(10)
@@ -98,15 +91,12 @@ describe Post do
         post.votes_count.should equal(5)
       end
     end
-  end
-end
 
-describe PostWithActiveComments do
-  describe 'instance with preloaded count' do
-    let(:post) { PostWithActiveComments.preload_comment_counts.first }
-
-    it "should be able to get the association count" do
-      post.comments_count.should equal(5)
+    context "when association has class_name" do
+      let(:post) { Post.preload_active_comment_counts.first }
+       it "should be able to get the association count" do
+        post.active_comments_count.should equal(5)
+      end
     end
   end
 end
