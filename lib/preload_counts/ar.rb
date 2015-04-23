@@ -70,14 +70,18 @@ module PreloadCounts
         conditions += self.instance_eval(&r_scope).where_values
       end
 
-      r_options = association_reflections.options
-      foreign_key = r_options[:as].present? ? "#{r_options[:as]}_id" : "#{table_name.singularize}_id"
+      r_foreign_key = association_reflections.foreign_key || "#{table_name.singularize}_id"
+      r_foreign_type = association_reflections.foreign_type
+      r_as = association_reflections.options[:as]
       association_table_name = resolved_association.table_name
-
+      
+      association_condition = "#{association_table_name}.#{r_foreign_key} = #{table_name}.id"
+      association_condition += " AND #{association_table_name}.#{r_as}_type = '#{name}'" if r_as
+      
       sql = <<-SQL
       (SELECT count(*)
        FROM #{association_table_name}
-       WHERE #{association_table_name}.#{foreign_key} = #{table_name}.id AND
+       WHERE #{association_condition} AND 
        #{conditions_to_sql conditions}) AS #{find_accessor_name(association, scope)}
       SQL
     end

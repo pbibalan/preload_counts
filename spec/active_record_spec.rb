@@ -20,6 +20,12 @@ def setup_db
       t.integer :votable_id, :null => false
       t.string :votable_type, :null => false
     end
+
+    create_table :shares do |t|
+      t.string :email
+      t.integer :shareable_id
+    end
+
   end
 end
 
@@ -29,9 +35,11 @@ class Post < ActiveRecord::Base
   has_many :comments
   has_many :active_comments, -> { where( "deleted_at IS NULL") }, :class_name => 'Comment'
   has_many :votes, as: :votable
+  has_many :shares, foreign_key: :shareable_id
   preload_counts :comments => [:with_even_id]
   preload_counts :active_comments
   preload_counts :votes
+  preload_counts :shares
 end
 
 class Comment < ActiveRecord::Base
@@ -44,11 +52,16 @@ class Vote < ActiveRecord::Base
   belongs_to :votable
 end
 
+class Share < ActiveRecord::Base
+
+end
+
 def create_data
   post = Post.create
   5.times { post.comments.create }
   5.times { post.comments.create :deleted_at => Time.now }
   5.times { post.votes.create }
+  5.times { post.shares.create }
 end
 
 create_data
@@ -96,6 +109,13 @@ describe Post do
       let(:post) { Post.preload_active_comment_counts.first }
        it "should be able to get the association count" do
         post.active_comments_count.should equal(5)
+      end
+    end
+
+    context "when association has foreign_key" do
+      let(:post) { Post.preload_share_counts.first }
+       it "should be able to get the association count" do
+        post.shares_count.should equal(5)
       end
     end
   end
