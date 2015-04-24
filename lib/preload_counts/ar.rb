@@ -38,9 +38,12 @@ module PreloadCounts
     private
     def scope_to_select(association)
       association_reflections = self.reflections.with_indifferent_access[association]
-      
+      r_options = association_reflections.options
+      throw ArgumentError.new "not implemented for through associations" if r_options[:through]
+      r_as = r_options[:as]
+      r_foreign_key = association_reflections.foreign_key || "#{table_name.singularize}_id"
+      r_foreign_type = association_reflections.foreign_type
       r_class_name = association_reflections.class_name
-
       resolved_association = r_class_name.present? ? r_class_name.singularize.constantize : association.to_s.singularize.camelize.constantize
       conditions = []
 
@@ -49,9 +52,6 @@ module PreloadCounts
         conditions += self.instance_eval(&r_scope).where_values
       end
 
-      r_foreign_key = association_reflections.foreign_key || "#{table_name.singularize}_id"
-      r_foreign_type = association_reflections.foreign_type
-      r_as = association_reflections.options[:as]
       association_table_name = resolved_association.table_name
       
       association_condition = "#{association_table_name}.#{r_foreign_key} = #{table_name}.id"

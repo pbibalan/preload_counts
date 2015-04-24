@@ -50,12 +50,12 @@ class Post < ActiveRecord::Base
   has_many :active_comments, -> { where( "deleted_at IS NULL") }, :class_name => 'Comment'
   has_many :votes, as: :votable
   has_many :shares, foreign_key: :shareable_id
+  
   preload_counts :comments
   preload_counts :active_comments
   preload_counts :votes
   preload_counts :shares
 end
-
 
 def create_data
   post = Post.create
@@ -82,10 +82,6 @@ describe Post do
 
     it "should be able to get count without preloading them" do
       post.comments_count.should equal(10)
-    end
-
-    it "should have an active_comments_count accessor" do
-      post.should respond_to(:active_comments_count)
     end
   end
 
@@ -116,5 +112,6 @@ describe Post do
         post.shares_count.should equal(5)
       end
     end
+
   end
 end
