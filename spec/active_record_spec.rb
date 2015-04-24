@@ -31,17 +31,6 @@ end
 
 setup_db
 
-class Post < ActiveRecord::Base
-  has_many :comments
-  has_many :active_comments, -> { where( "deleted_at IS NULL") }, :class_name => 'Comment'
-  has_many :votes, as: :votable
-  has_many :shares, foreign_key: :shareable_id
-  preload_counts :comments => [:with_even_id]
-  preload_counts :active_comments
-  preload_counts :votes
-  preload_counts :shares
-end
-
 class Comment < ActiveRecord::Base
   belongs_to :post
 
@@ -56,6 +45,18 @@ class Share < ActiveRecord::Base
 
 end
 
+class Post < ActiveRecord::Base
+  has_many :comments
+  has_many :active_comments, -> { where( "deleted_at IS NULL") }, :class_name => 'Comment'
+  has_many :votes, as: :votable
+  has_many :shares, foreign_key: :shareable_id
+  preload_counts :comments
+  preload_counts :active_comments
+  preload_counts :votes
+  preload_counts :shares
+end
+
+
 def create_data
   post = Post.create
   5.times { post.comments.create }
@@ -65,6 +66,7 @@ def create_data
 end
 
 create_data
+
 
 describe Post do
   it "should have a preload_comment_counts scope" do
@@ -92,10 +94,6 @@ describe Post do
 
     it "should be able to get the association count" do
       post.comments_count.should equal(10)
-    end
-
-    it "should be able to get the association count with a scope" do
-      post.with_even_id_comments_count.should equal(5)
     end
 
     context "when association is polymorphic" do

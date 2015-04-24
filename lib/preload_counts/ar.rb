@@ -17,53 +17,32 @@
 # And only requires one DB query.
 module PreloadCounts
   module ClassMethods
-    def preload_counts(options)
-      options = Array(options).inject({}) {|h, v| h[v] = []; h}  unless options.is_a?(Hash)
-      options.each do |association, scopes|
-        scopes = scopes + [nil]
+    def preload_counts(association)
+      name = "preload_#{association.to_s.singularize}_counts"
+      singleton = class << self; self end
+      scope_to_select(association)
+      singleton.send :define_method, name do
+        sql = ["#{table_name}.*",scope_to_select(association)]
+        sql = sql.join(', ')
+        all.select(sql)
+      end
 
-        # Define singleton metho to load all counts
-        name = "preload_#{association.to_s.singularize}_counts"
-        singleton = class << self; self end
-        singleton.send :define_method, name do
-          sql = ["#{table_name}.*"] + scopes_to_select(association, scopes)
-          sql = sql.join(', ')
-          all.select(sql)
-        end
-
-        scopes.each do |scope|
-          # Define accessor for each count
-          accessor_name = find_accessor_name(association, scope)
-          define_method accessor_name do
-            result = public_send(association)
-            result = result.public_send(scope) if scope
-            (self[accessor_name] || result.size).to_i
-          end
-        end
-
+      accessor_name = get_accessor_name(association)
+      define_method  "#{association}_count" do
+        result = public_send(association)
+        (self[accessor_name] || result.size).to_i
       end
     end
+
 
     private
-    def scopes_to_select(association, scopes)
-      scopes.map do |scope|
-        scope_to_select(association, scope)
-      end
-    end
-
-    def scope_to_select(association, scope)
+    def scope_to_select(association)
       association_reflections = self.reflections.with_indifferent_access[association]
       
       r_class_name = association_reflections.class_name
 
       resolved_association = r_class_name.present? ? r_class_name.singularize.constantize : association.to_s.singularize.camelize.constantize
       conditions = []
-
-      if scope
-        scope_sql = resolved_association.send(scope).to_sql
-        condition = scope_sql.gsub(/^.*WHERE/, '')
-        conditions << condition
-      end
 
       r_scope = association_reflections.scope
       if r_scope
@@ -77,19 +56,17 @@ module PreloadCounts
       
       association_condition = "#{association_table_name}.#{r_foreign_key} = #{table_name}.id"
       association_condition += " AND #{association_table_name}.#{r_as}_type = '#{name}'" if r_as
-      
+
       sql = <<-SQL
       (SELECT count(*)
        FROM #{association_table_name}
        WHERE #{association_condition} AND 
-       #{conditions_to_sql conditions}) AS #{find_accessor_name(association, scope)}
+       #{conditions_to_sql conditions}) AS #{get_accessor_name(association)}
       SQL
     end
 
-    def find_accessor_name(association, scope)
-      accessor_name = "#{association}_count"
-      accessor_name = "#{scope}_" + accessor_name if scope
-      accessor_name
+    def get_accessor_name(association)
+      "#{association}_count"
     end
 
     def conditions_to_sql(conditions)
